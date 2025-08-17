@@ -29,7 +29,7 @@ const App = () => {
     }
     return setVotes(copy) 
   }
-
+  
   return (
     <div>
       <h1>Anecdote of the day</h1>
