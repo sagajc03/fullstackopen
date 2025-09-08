@@ -1,6 +1,8 @@
+require("dotenv").config();
 const express = require("express");
 const app = express();
 var morgan = require("morgan");
+const Person = require("./models/person");
 
 let persons = [
   {
@@ -40,14 +42,10 @@ app.get("/info", (request, response) => {
 });
 
 app.get("/api/persons", (request, response) => {
-  response.json(persons);
+  Person.find({}).then((people) => {
+    response.json(people);
+  });
 });
-
-const generateID = () => {
-  const min = 4;
-  const max = 10000;
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-};
 
 morgan.token("post", (req, res) => {
   // console.log(req.body);
@@ -73,24 +71,28 @@ app.post("/api/persons", (request, response) => {
     });
   }
 
-  const person = {
-    id: String(generateID()),
+  const person = new Person({
     name: body.name,
     number: body.number,
-  };
-  persons = persons.concat(person);
-
-  response.json(person);
+  });
+  person.save().then((savedPerson) => {
+    response.json(savedPerson);
+  });
 });
 
 app.get("/api/persons/:id", (request, response) => {
-  const id = request.params.id;
-  const person = persons.find((person) => person.id === id);
-  if (person) {
-    response.json(person);
-  } else {
-    response.status(404).end();
-  }
+  Person.findById(request.params.id)
+    .then((person) => {
+      if (person) {
+        response.json(person);
+      } else {
+        response.status(404).end();
+      }
+    })
+    .catch((error) => {
+      console.log(error);
+      response.status(400).send({ error: "malformatted id" });
+    });
 });
 
 app.delete("/api/persons/:id", (request, response) => {
