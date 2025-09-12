@@ -3,6 +3,7 @@ const express = require("express");
 const app = express();
 var morgan = require("morgan");
 const Person = require("./models/person");
+const { default: mongoose } = require("mongoose");
 
 let persons = [
   {
@@ -34,11 +35,21 @@ app.use(express.static("dist"));
 app.get("/info", (request, response) => {
   const ahora = Date.now();
   const today = new Date(ahora);
-  response.send(
-    `<p>Phonebook has info of ${
-      persons.length
-    } people</p> <p>${today.toISOString()}</p>`
-  );
+  async function getNum() {
+    let total = 0;
+    try {
+      total = await Person.countDocuments({});
+    } catch (err) {
+      console.error("Error counting", err);
+    } finally {
+      return total;
+    }
+  }
+  getNum().then((num) => {
+    response.send(
+      `<p>Phonebook has info of ${num} people</p> <p>${today.toISOString()}</p>`
+    );
+  });
 });
 
 app.get("/api/persons", (request, response) => {
@@ -60,14 +71,6 @@ app.post("/api/persons", (request, response) => {
   if (!body.name || !body.number) {
     return response.status(400).json({
       error: "name or phone number missing",
-    });
-  }
-
-  const same = persons.filter((some) => some.name === body.name);
-
-  if (same.length > 0) {
-    return response.status(400).json({
-      error: "name must be unique",
     });
   }
 
@@ -95,11 +98,35 @@ app.get("/api/persons/:id", (request, response) => {
     });
 });
 
-app.delete("/api/persons/:id", (request, response) => {
+app.delete("/api/persons/:id", (request, response, error) => {
+  Person.findByIdAndDelete(request.params.id)
+    .then((result) => {
+      response.status(204).end();
+    })
+    .catch((error) => next(error));
   const id = request.params.id;
   persons = persons.filter((person) => person.id !== id);
 
   response.status(204).end();
+});
+
+app.put("/api/persons/:id", (request, response, next) => {
+  const { name, number } = request.body;
+
+  Person.findById(request.params.id)
+    .then((person) => {
+      if (!person) {
+        return response.status(404).end();
+      }
+
+      person.name = name;
+      person.number = number;
+
+      return person.save().then((updatedPerson) => {
+        response.json(updatedPerson);
+      });
+    })
+    .catch((error) => next(error));
 });
 
 const unknownEndpoint = (request, response) => {
@@ -107,6 +134,17 @@ const unknownEndpoint = (request, response) => {
 };
 
 app.use(unknownEndpoint);
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message);
+  if (error.name === "CastError") {
+    return response.status(400).send({ error: "malformatted id" });
+  }
+
+  next(error);
+};
+
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
