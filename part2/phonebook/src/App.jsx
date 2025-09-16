@@ -68,17 +68,27 @@ const App = () => {
         })
 
     }
+    console.log("crear")
     phoneService
       .create(personObject)
       .then((person) => {
+        console.log(person)
         setPersons(persons.concat(person))
         helperReset()
         setFilteredPersons(persons.concat(person))
-      })
-      setNotification(`Added ${personObject.name}`)
+        setNotification(`Added ${personObject.name}`)
           setTimeout(() => {
             setNotification(null)
           },5000)
+      })
+      .catch((error) => {
+        console.log(error.response.data.error)
+        setError(`${error.response.data.error}`)
+          setTimeout(() => {
+            setError(null)
+          },5000)
+      })
+      
     
   }
 
